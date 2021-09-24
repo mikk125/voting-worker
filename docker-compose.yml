@@ -1,0 +1,80 @@
+version: '2'
+services:
+    rabbitmq-container:
+        hostname: rabbitmq
+        container_name: rabbitmq-container
+        image: rabbitmq:management
+        ports:
+            - 5672:5672
+            - 15672:15672
+
+    db-container:
+        image: postgres:13.1-alpine
+        ports:
+            - 5432:5432
+        container_name: db-container
+        environment:
+            - POSTGRES_PASSWORD=password
+            - POSTGRES_USER=postgres
+            - POSTGRES_DB=postgres
+
+    voting-db:
+        container_name: voting-db
+        image: voting-db:latest
+        ports:
+            - 8080:8080
+        build: ../voting-db
+        depends_on:
+            - db-container
+        environment:
+            - SPRING_DATASOURCE_URL=jdbc:postgresql://db-container:5432/postgres
+            - SPRING_DATASOURCE_USERNAME=postgres
+            - SPRING_DATASOURCE_PASSWORD=password
+            - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+
+    voting-message-api:
+        container_name: voting-message-api
+        build: ../voting-api
+        image: voting-message-api:latest
+        ports:
+            - 9000:9000
+        depends_on:
+            - rabbitmq-container
+        network_mode: host
+
+    voting-message-worker:
+        container_name: voting-message-worker
+        build: .
+        image: voting-message-worker:latest
+        ports:
+            - 9001:9001
+        depends_on:
+            - rabbitmq-container
+        environment:
+            - DB_APP_PORT=8080
+        network_mode: host
+
+    voting-results-api:
+        container_name: voting-results-api
+        build: ../voting-results-api
+        image: voting-results-api:latest
+        ports:
+            - 9002:9002
+        environment:
+            - DB_APP_PORT=8080
+        network_mode: host
+
+    voting-fe:
+        container_name: voting-fe
+        build: ../voting-fe
+        ports:
+            - 4200:4200
+        environment:
+            - VOTING_RESULTS_API_PORT=9002
+            - VOTING_API_PORT=9000
+        network_mode: host
+
+
+
+
+
